@@ -1,5 +1,6 @@
 package feign.vertx.testcase;
 
+import feign.Fallback;
 import feign.Headers;
 import feign.Param;
 import feign.RequestLine;
@@ -17,6 +18,7 @@ import java.util.Collection;
  * @author Alexei KLENIN
  */
 @Headers({ "Accept: application/json" })
+@Fallback( IcecreamServiceApiFallback.class )
 public interface IcecreamServiceApi {
 
   @RequestLine("GET /icecream/flavors")

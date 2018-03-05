@@ -12,6 +12,7 @@ import feign.vertx.VertxHttpClient;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.circuitbreaker.CircuitBreaker;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -57,7 +58,14 @@ public final class VertxFeign extends Feign {
         defaultMethodHandlers.add(handler);
         methodToHandler.put(method, handler);
       } else {
-        methodToHandler.put(method, nameToHandler.get(Feign.configKey(target.type(), method)));
+        final MethodHandler handler = nameToHandler.get(Feign.configKey(target.type(), method));
+        methodToHandler.put(method, handler);
+
+        if ( handler instanceof AsynchronousMethodHandler ) {
+          // For our custom MethodHandler we pass the detailed Method information.
+          // This is required to identify the fallback method when a circuit breaker is employed.
+          ((AsynchronousMethodHandler)handler).updateMethodDetail(method);
+        }
       }
     }
 
@@ -89,6 +97,7 @@ public final class VertxFeign extends Feign {
     private ErrorDecoder errorDecoder = new ErrorDecoder.Default();
     private HttpClientOptions options = new HttpClientOptions();
     private boolean decode404;
+    private CircuitBreaker circuitBreaker;
 
     /** Unsupported operation. */
     @Override
@@ -287,7 +296,17 @@ public final class VertxFeign extends Feign {
       for (final RequestInterceptor requestInterceptor : requestInterceptors) {
         this.requestInterceptors.add(requestInterceptor);
       }
+      return this;
+    }
 
+    /**
+     * Sets the circuit breaker to use for this Feign Vert.x client
+     * @param circuitBreaker
+     * @return
+     */
+    public Builder circuitBreaker(
+            final CircuitBreaker circuitBreaker) {
+      this.circuitBreaker = circuitBreaker;
       return this;
     }
 
@@ -328,7 +347,7 @@ public final class VertxFeign extends Feign {
       final VertxHttpClient client = new VertxHttpClient(vertx, this.options);
       final AsynchronousMethodHandler.Factory methodHandlerFactory =
           new AsynchronousMethodHandler.Factory(client, retryer, requestInterceptors, logger,
-              logLevel, decode404);
+              logLevel, decode404, circuitBreaker);
       final ParseHandlersByName handlersByName = new ParseHandlersByName(
           contract, options, encoder, decoder, errorDecoder, methodHandlerFactory);
       final InvocationHandlerFactory invocationHandlerFactory =

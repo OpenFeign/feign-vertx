@@ -150,6 +150,12 @@
             <version>${slf4j-log4j12.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-circuit-breaker</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
